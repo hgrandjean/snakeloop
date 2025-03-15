@@ -1,0 +1,12 @@
+name: genomad_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - snakemake=7.32.4
+  - genomad=1.5.2
+  - python=3.9
+  - pip
+  - pandas
+  - numpy
