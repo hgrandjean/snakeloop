@@ -1,0 +1,56 @@
+import pandas as pd
+import os
+
+# Configuration
+SAMPLES_TSV = "/Users/hugo/work/samples_2.tsv"
+ref_genome = "/Users/hugo/work/reference/GCF_000006945.2_ASM694v2_genomic.gbff"
+
+# Load sample information
+config_df = pd.read_csv(SAMPLES_TSV, sep="\t")
+# Create a dictionary of sample names to R1 and R2 paths
+samples = config_df["sample"].tolist()
+r1_dict = dict(zip(config_df["sample"], config_df["R1"]))
+r2_dict = dict(zip(config_df["sample"], config_df["R2"]))
+
+# Define output directory for snippy-core
+CORE_DIR = "snippy_core_output"
+
+rule all:
+    input:
+        os.path.join(CORE_DIR, "core.vcf"),
+        os.path.join(CORE_DIR, "core.aln"),
+        os.path.join(CORE_DIR, "core.full.aln"),
+        os.path.join(CORE_DIR, "core.txt")
+
+rule run_snippy:
+    input:
+        r1 = lambda wildcards: r1_dict[wildcards.sample],
+        r2 = lambda wildcards: r2_dict[wildcards.sample],
+        reference = ref_genome
+    output:
+        directory("snippy_output/{sample}")
+    threads: 8
+    shell:
+        """
+        snippy --cpus {threads} --outdir {output} --ref {input.reference} \
+        --R1 {input.r1} --R2 {input.r2}
+        """
+
+rule snippy_core:
+    input:
+        dirs = expand("snippy_output/{sample}", sample=samples),
+        reference = ref_genome
+    output:
+        core_vcf = os.path.join(CORE_DIR, "core.vcf"),
+        core_aln = os.path.join(CORE_DIR, "core.aln"),
+        core_full = os.path.join(CORE_DIR, "core.full.aln"),
+        core_txt = os.path.join(CORE_DIR, "core.txt")
+    params:
+        prefix = os.path.join(CORE_DIR, "core"),
+        dirs_str = lambda wildcards, input: " ".join(input.dirs)
+    threads: 8
+    shell:
+        """
+        mkdir -p {CORE_DIR}
+        snippy-core --prefix {params.prefix} --ref {input.reference} {params.dirs_str}
+        """
